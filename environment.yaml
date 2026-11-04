@@ -25,3 +25,5 @@ dependencies:
         - python-jose[cryptography]
         - psycopg2-binary
         - asyncpg
+        - greenlet
+        - psycopg[binary]

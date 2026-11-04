@@ -5,26 +5,25 @@ from sqlalchemy.orm import DeclarativeBase
 
 load_dotenv()
 
-POSTGRESQL_DATABASE_URL = os.get("POSTGRESQL_DATABASE_URL")
+POSTGRESQL_DATABASE_URL = os.getenv("POSTGRESQL_DATABASE_URL")
 
-# 1. 비동기 전용 DB 엔진 생성
+# 1. 비동기 전영 DB 엔진 생성
 engine = create_async_engine(
     POSTGRESQL_DATABASE_URL, echo=True
 )
 
-# 비동기 세션 생성기
-
+# 2. 비동기 세션 생성기 
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,
     class_=AsyncSession,
     expire_on_commit=False # 비동기 설정 필수값
 )
 
-# 모델은 반드시 Base를 상속받아서 설계해야 ORM이 관리해준다.
+# 3. Model은 반드시 Base를 상속받아서 설계해야 ORM이 관리해준다.
 class Base(DeclarativeBase):
-    pass
+    pass 
 
-# ※ 4. FastAPI 비동기 의존성 주입(Dependdency Injection)을 처리하는 함수
+# ※ 4. FastAPI 비동기 의존성 주입(Dependency Injection)을 처리하는 함수
 async def get_postgresql_db():
     async with AsyncSessionLocal() as db:
         try:
@@ -32,6 +31,7 @@ async def get_postgresql_db():
 
         finally:
             await db.close()
+
 
 
 # 내보내고 싶은 파일이 있는 폴더 안에 내용이 비어있는 __init__.py 파일을 넣어주면 export와 동일한 기능을 하게 된다.

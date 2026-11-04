@@ -1,22 +1,34 @@
 from fastapi import FastAPI
+from app.security.cors import setup_cors
+from app.security.sequrity_headers import set_up_security
 from contextlib import asynccontextmanager
 from app.infrastructure.postgresql import engine, Base
+import app.models  # model 폴더의 init에서 import된 모든 모델들을 코드 한 줄만으로 가져옴.
+from app.apis import member_api
 
+@asynccontextmanager
 async def lifespan(app: FastAPI):
     # 비동기 연결
     async with engine.begin() as conn:
-        pass
+        await conn.run_sync(Base.metadata.create_all)
+        print("PostgreSQL 연결 성공")
 
     yield
 
 app = FastAPI(
+    lifespan=lifespan,
     title="Fast API Service",
     description="파이썬 백엔드 구축",
     version="1.0.0",
-    docs_url="/docs",
+    docs_url="/docs",  # Swagger(API를 만들면 자동으로 해당하는 문서를 만들고 테스트할 수 있게 해줌)
     redoc_url="/redoc"
 )
+
+setup_cors(app)
+set_up_security(app)
 
 @app.get("/")
 def health_check():
     return {"message": "hello, world"}
+
+app.include_router(member_api.router, prefix="/members", tags=["members"])
