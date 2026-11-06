@@ -7,7 +7,7 @@ from app.infrastructure.postgresql import Base
 from typing import TYPE_CHECKING
 
 # ※ 순환 참조
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # if TYPE_CHECKING: 이 조건 넣어주면 순환참조로 인한 stack overflow를 방지할 수 있음.
     from app.models.member_model import Member
 
 KST = timezone(timedelta(hours=9)) # UTC+9
@@ -18,7 +18,7 @@ class Post(Base):
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
     post_title: Mapped[str] = mapped_column(Text, nullable=False)
     post_content: Mapped[str] = mapped_column(Text, nullable=False)
-    post_read_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    post_read_count: Mapped[int] = mapped_column(BigInteger, default=0)
 
     post_updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(KST))
     post_created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(KST))

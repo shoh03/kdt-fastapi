@@ -4,7 +4,7 @@ from app.security.sequrity_headers import set_up_security
 from contextlib import asynccontextmanager
 from app.infrastructure.postgresql import engine, Base
 import app.models  # model 폴더의 init에서 import된 모든 모델들을 코드 한 줄만으로 가져옴.
-from app.apis import member_api
+from app.apis import member_api, post_api
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -32,3 +32,4 @@ def health_check():
     return {"message": "hello, world"}
 
 app.include_router(member_api.router, prefix="/members", tags=["members"])
+app.include_router(post_api.router, prefix="/posts", tags=["posts"])

@@ -5,7 +5,7 @@ from app.schemas.member_schema import (
     MemberCreateDTO, MemberClaimDTO, MemberResponseDTO, MemberUpdateDTO
 )
 from app.utils.security_util import get_password_hash
-import math
+import math 
 
 from app.schemas.common_schema import PageResponseDTO
 
@@ -18,7 +18,7 @@ class MemberService:
 
     # 회원 이메일 중복확인
     async def check_duplicate_member(self, member_email: str, member_provider: str) -> None:
-        result = await self.repo.exists_member(member_email, member_provider)
+        result = await self.repo.exists_member_email_and_provider(member_email, member_provider)
     
         if result:
             raise HTTPException(
@@ -99,6 +99,7 @@ class MemberService:
             items=items_dto
         )
 
+    # 회원 정보 수정
     async def update_member(self, id: int, member: MemberUpdateDTO):
 
         exist_member = await self.repo.exists_member_by_id(id)

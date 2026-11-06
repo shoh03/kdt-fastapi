@@ -1,6 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.postgresql import get_postgresql_db
 from fastapi import Depends
+from sqlalchemy import insert, select, update, delete, func, exists
 
 
 

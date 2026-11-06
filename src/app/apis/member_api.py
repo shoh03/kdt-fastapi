@@ -44,7 +44,7 @@ async def join(
     member_service: MemberService = Depends(get_member_service)
 ):
     pass
-    # provider는 controller 담당
+    # provider는 controller 담당    
     member.member_provider = MemberProvider.LOCAL.value
     member_claim: MemberClaimDTO = await member_service.join(member)
 

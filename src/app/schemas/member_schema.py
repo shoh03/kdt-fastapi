@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from datetime import datetime
 from app.enums.member_enum import MemberProvider
+from app.models.post_model import Post
 
 # VO
 class MemberVO(BaseModel):
@@ -13,6 +14,7 @@ class MemberVO(BaseModel):
     member_provider_id: str | None = None
     member_provider: MemberProvider | None = None
     member_created_at: datetime | None = None
+
 
 # 이 중 id, member_provider_id, member_provider, member_created_at는 사용자에게서 받는 정보가 아님.
 # 때문에 사용자에게서 받을 정보(프론트와 주고받아야 하는 정보)만 담아놓은 게 DTO
@@ -67,6 +69,15 @@ class MemberUpdateDTO(BaseModel):
     member_password: str | None = None
     member_name: str | None = None
     member_age: int | None = None
+    member_profile: str | None = "/members/default.jpg"
+
+    class Config:
+        from_attributes = True
+
+class MemberSummaryDTO(BaseModel):
+    id: int
+    member_email: str | None = None
+    member_name: str | None = None
     member_profile: str | None = "/members/default.jpg"
 
     class Config:
