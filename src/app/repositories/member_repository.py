@@ -77,7 +77,7 @@ class MemberRepository:
 
     # 5. 회원 정보 조회(email, provider)
     async def find_member_by_email_provider(self, email: str, provider: str):
-        query = select(Member).where(Member.member_email == email and Member.member_provider == provider)
+        query = select(Member).where(Member.member_email == email, Member.member_provider == provider)
         result = await self.db.execute(query)
         found_member = result.scalar_one_or_none()
         return found_member

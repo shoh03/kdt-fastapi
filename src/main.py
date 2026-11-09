@@ -1,10 +1,12 @@
 from fastapi import FastAPI
 from app.security.cors import setup_cors
-from app.security.sequrity_headers import set_up_security
+from app.security.security_headers import set_up_security
 from contextlib import asynccontextmanager
 from app.infrastructure.postgresql import engine, Base
+from app.infrastructure.redis import start_redis_client
 import app.models  # model 폴더의 init에서 import된 모든 모델들을 코드 한 줄만으로 가져옴.
-from app.apis import member_api, post_api
+from app.apis import member_api, post_api, auth_api
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -13,7 +15,10 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
         print("PostgreSQL 연결 성공")
 
-    yield
+    async with start_redis_client(app):
+        print("Redis 연결 성공")
+
+        yield
 
 app = FastAPI(
     lifespan=lifespan,
@@ -33,3 +38,4 @@ def health_check():
 
 app.include_router(member_api.router, prefix="/members", tags=["members"])
 app.include_router(post_api.router, prefix="/posts", tags=["posts"])
+app.include_router(auth_api.router, prefix="/auth", tags=["auth"])

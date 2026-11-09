@@ -59,7 +59,7 @@ class MemberService:
         return MemberResponseDTO.model_validate(found_member)
 
     # 회원조회(email, provider)
-    async def get_member_by_email_provider(self, email: str, provider: str) -> MemberResponseDTO:
+    async def get_member_by_email_provider(self, email: str, provider: str) -> Member:
         found_member = await self.repo.find_member_by_email_provider(email, provider)
 
         if not found_member:
@@ -68,7 +68,7 @@ class MemberService:
                 detail="회원이 존재하지 않습니다."
             )
 
-        return MemberResponseDTO.model_validate(found_member)
+        return found_member
 
     # 전체 회원 조회
     async def get_all_members(self) -> list[MemberResponseDTO]:

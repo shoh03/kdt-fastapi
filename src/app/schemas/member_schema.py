@@ -30,7 +30,7 @@ class MemberCreateDTO(BaseModel):
 
     # ORM -> Pydantic
     class Config:
-        from_attribures = True
+        from_attributes = True
 
 class SosialMemberCreateDTO(BaseModel):
     member_email: str
@@ -41,7 +41,7 @@ class SosialMemberCreateDTO(BaseModel):
 
     # ORM -> Pydantic
     class Config:
-        from_attribures = True
+        from_attributes = True
 
 class MemberClaimDTO(BaseModel):
     id: int
@@ -49,7 +49,7 @@ class MemberClaimDTO(BaseModel):
     member_provider: str
 
     class Config:
-        from_attribures = True
+        from_attributes = True
 
 # 화면으로 보내는 DTO는 Response라는 이름을 붙임
 class MemberResponseDTO(BaseModel):
