@@ -18,18 +18,23 @@ REFRESH_TOKEN_PREFIX = os.getenv("REFRESH_TOKEN_PREFIX")
 # 트랜잭션 관리
 class AuthService:
 
-    def __init__(self, redis_repo: RedisRepository, member_service: MemberService):
+    def __init__(
+            self, 
+            redis_repo: RedisRepository,
+            member_service: MemberService
+        ):
         self.redis_repo = redis_repo
         self.member_service = member_service
 
-# redis에 refresh_token 저장
-# key - 콜론 체이닝(값들을 콜론(,)으로 엮는 방식)
-    async def save_refresh_token(self, member_id: int, refresh_token) -> None:
-        try:
-            key = f"{REFRESH_TOKEN_PREFIX}{member_id}"
-            ex = 60 * 60 * 24 * 30  # 30일
-            await self.redis_repo.set(key, refresh_token, ex=ex)
 
+    # redis에 refresh_token 저장
+    # key - 콜론 체이닝
+    async def save_refresh_token(self, member_id: int, refresh_token: str) -> None:
+        try:
+            key=f"{REFRESH_TOKEN_PREFIX}{member_id}"
+            ex = 60 * 60 * 24 * 30 # 30일
+            await self.redis_repo.set(key, refresh_token, ex=ex)
+            
         except Exception:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -37,19 +42,20 @@ class AuthService:
             )
 
 
-    #  redis에 등록된 refresh_token 유효한지 검사
+    # redis에 등록된 refresh_token가 유효한지 검사
     async def validate_refresh_token(self, member_id: int, refresh_token: str) -> bool:
-        key = f"{REFRESH_TOKEN_PREFIX}{member_id}"
-        saved_token= await self.redis_repo.get(key)
+        key=f"{REFRESH_TOKEN_PREFIX}{member_id}"
+        saved_token = await self.redis_repo.get(key)
         return refresh_token == saved_token
 
 
-    #  redis에 등록된 refresh_token 삭제
+    # redis에 등록된 refresh_token을 삭제 
     async def delete_refresh_token(self, member_id: int):
-        key = f"{REFRESH_TOKEN_PREFIX}{member_id}"
+        key=f"{REFRESH_TOKEN_PREFIX}{member_id}"
         await self.redis_repo.delete(key)
 
-    #  redis에 등록된 access_token 무효화(로그아웃시)
+
+    # redis에 등록된 access_token 무효화 -> 블랙리스트로 등록(로그아웃)
     async def save_blacklisted_token(self, access_token: str) -> None:
         try:
             key = f"{TOKEN_BLACKLIST_PREFIX}{access_token}"
@@ -63,67 +69,120 @@ class AuthService:
                 detail="save_blacklisted_token 오류"
             )
 
-    #  redis에 블랙리스트로 등록되어있는지 확인
+
+    # redis에 블랙리스트로 등록되어있는지 확인
     async def is_blacklisted_token(self, access_token: str) -> bool:
         key = f"{TOKEN_BLACKLIST_PREFIX}{access_token}"
         # True -> 블랙리스트
-        # False -> 사용 가능
+        # False -> 사용가능
         return await self.redis_repo.exists(key)
 
-
-    #  로그인
+    # 로그인
     async def login(self, login_request_dto: LoginRequestDTO) -> JwtTokenDTO:
-        # 회원 조회
+        # 1. 회원 조회
         member_in_db = await self.member_service.get_member_by_email_provider(
-            login_request_dto.member_email,
+            login_request_dto.member_email, 
             login_request_dto.member_provider
         )
 
-        # 비밀번호 검증
+        # 2. 비밀번호 검증(단방향 검사)
         if not verify_password(
-            login_request_dto.member_password,
-            member_in_db.member_password
+            login_request_dto.member_password, # 플레인 비밀번호
+            member_in_db.member_password # 암호화된 비밀번호
         ):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="verify_password 비밀번호 불일치"
             )
 
-        # JWT 토큰 만들기
-        #   - 유저의 정보 중 최소한의 정보만 claim에 담기
+        # 3. JWT 토큰 만들기
+        # - 유저의 정보 중 최소한의 정보만 claim에 담기
         member_id = member_in_db.id
         claims = MemberClaimDTO(
-            id=member_in_db.id,
+            id=member_id,
             member_email=member_in_db.member_email,
             member_provider=member_in_db.member_provider
         )
 
-        #   - 유틸 함수 이용해서 토큰(refresh, access) 만들기
+        # - 유틸 함수를 이용해서 토큰을 만든다(refresh, access)
         access_token = generate_access_token(claims)
         refresh_token = generate_refresh_token(claims)
 
-        # refresh를 redis에 저장
+        # 4. refresh를 redis에 저장
         await self.save_refresh_token(member_id, refresh_token)
 
-        # 토큰 반환
+        # 5. 토큰 반환
         return JwtTokenDTO(
             access_token=access_token,
             refresh_token=refresh_token
         )
-        
 
 
-    #  소셜로그인
-    #  로그아웃
-    #  refresh => access 재발급
+    # 소셜 로그인
+    async def social_login_or_none(self, social_member: SocialLoginRequestDTO) -> JwtTokenDTO | None:
+        member_in_db = await self.member_service.get_member_by_email_provider(
+            social_member.member_email,
+            social_member.member_provider
+        )
+
+        if not member_in_db:
+            return None
+
+        member_id = member_in_db.id
+        claims = MemberClaimDTO(
+            id=member_id,
+            member_email=member_in_db.member_email,
+            member_provider=member_in_db.member_provider
+        )
+
+        access_token = generate_access_token(claims)
+        refresh_token = generate_refresh_token(claims)
+        await self.save_refresh_token(member_id, refresh_token)
+
+        return JwtTokenDTO(
+            access_token=access_token,
+            refresh_token=refresh_token
+        )
+
+
+    # 로그아웃
+    # - access_token이 만료돼 쿠키에서 사라졌어도 로그아웃은 되어야 하므로
+    #   access/refresh 중 살아있는 토큰으로 회원을 찾는다.
+    async def logout(self, access_token: str | None, refresh_token: str | None) -> None:
+        member_id = None
+        for token in (access_token, refresh_token):
+            if not token:
+                continue
+            try:
+                member_id = parse_token(token).id
+                break
+            except Exception:
+                continue
+
+        # 아직 유효한 access_token은 블랙리스트에 등록
+        if access_token:
+            try:
+                parse_token(access_token)
+                await self.save_blacklisted_token(access_token)
+            except HTTPException:
+                raise
+            except Exception:
+                pass  # 이미 만료/위조된 토큰은 블랙리스트 불필요
+
+        if member_id is not None:
+            await self.delete_refresh_token(member_id)
+    
+
+    # refresh -> access 재발급
 
 
 
-
-
-    # 레포지토리 주입 팩토리 함수
+# 레포지토리 주입 팩토리 함수
 def get_auth_service(
-    redis_repo: RedisRepository = Depends(get_redis_repository), 
+    redis_repo: RedisRepository = Depends(get_redis_repository),
     member_service: MemberService = Depends(get_member_service)
 ):
     return AuthService(redis_repo, member_service)
+
+
+

@@ -24,7 +24,7 @@ async def check_member(
 
 
 @router.post("/join",
-    summary="로컬 회원 가입",
+    summary="회원 가입",
     response_model=ApiResponseDTO,
     responses={
         409: {
@@ -46,6 +46,39 @@ async def join(
     pass
     # provider는 controller 담당    
     member.member_provider = MemberProvider.LOCAL.value
+    member_claim: MemberClaimDTO = await member_service.join(member)
+
+    return ApiResponseDTO(
+        success=True,
+        message="회원가입 성공",
+        data=member_claim
+    )
+
+@router.post("/join-additional",
+    summary="소셜 추가 회원 가입",
+    response_model=ApiResponseDTO,
+    responses={
+        409: {
+            "description": "중복된 이메일(또는 사용자 이름)으로 회원가입 시도",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "이미 존재하는 이메일입니다."
+                    }
+                }
+            }
+        }
+    }
+)
+async def join_additional(
+    member: MemberCreateDTO, 
+    member_service: MemberService = Depends(get_member_service)
+):
+    pass
+    # provider는 controller 담당    
+    if not member.member_provider:
+        member.member_provider = MemberProvider.LOCAL.value
+        
     member_claim: MemberClaimDTO = await member_service.join(member)
 
     return ApiResponseDTO(

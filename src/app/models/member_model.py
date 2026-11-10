@@ -20,6 +20,7 @@ class Member(Base):
     member_password: Mapped[str | None] = mapped_column(Text)  # 소셜 로그인에는 비밀번호가 필요없으므로 옵셔널
     member_name: Mapped[str | None] = mapped_column(Text)
     member_age: Mapped[int | None] = mapped_column(Integer)
+    member_phone: Mapped[str | None] = mapped_column(Text)
     member_profile: Mapped[str | None] = mapped_column(Text, default="/members/default.jpg")
     member_provider_id: Mapped[str | None] = mapped_column(Text, unique=True)  
     member_provider: Mapped[MemberProvider] = mapped_column(
