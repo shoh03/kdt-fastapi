@@ -51,10 +51,10 @@ class MemberRepository:
         )
 
         result = await self.db.execute(query)
-        await self.db.commit()
 
         # 필요한 값을 리턴(id, email, provider)
         id, member_email, member_provider = result.first()
+        await self.db.commit()
 
         payload = {
             "id": id,

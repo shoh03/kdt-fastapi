@@ -8,7 +8,7 @@ from app.utils.jwt_token_util import (
     parse_token, generate_access_token, generate_refresh_token, reissue_access_token
 )
 from app.schemas.auth_schema import JwtTokenDTO, LoginRequestDTO, SocialLoginRequestDTO
-from app.schemas.member_schema import MemberClaimDTO
+from app.schemas.member_schema import MemberClaimDTO, MemberCreateDTO
 
 load_dotenv()
 TOKEN_BLACKLIST_PREFIX = os.getenv("TOKEN_BLACKLIST_PREFIX")
@@ -128,11 +128,14 @@ class AuthService:
         if not member_in_db:
             return None
 
-        member_id = member_in_db.id
+        member_id = int(member_in_db.id)
+        member_email=str(member_in_db.member_email)
+        member_provider=str(member_in_db.member_provider)
+
         claims = MemberClaimDTO(
             id=member_id,
-            member_email=member_in_db.member_email,
-            member_provider=member_in_db.member_provider
+            member_email=member_email,
+            member_provider=member_provider
         )
 
         access_token = generate_access_token(claims)
@@ -145,35 +148,67 @@ class AuthService:
         )
 
 
+     # 소셜 로그인(회원가입 버전)
+    async def social_login_or_join(self, social_member: SocialLoginRequestDTO) -> JwtTokenDTO | None:
+
+        member_email = social_member.member_email
+        member_provider = social_member.member_provider
+        member_provider_id = social_member.member_provider_id
+
+        member_in_db = await self.member_service.get_member_by_email_provider(
+            member_email=member_email,
+            member_provider=member_provider,
+        )
+
+        if not member_in_db:
+            new_member = MemberCreateDTO(
+                member_email=member_email,
+                member_provider=member_provider,
+                member_provider_id=member_provider_id
+            )
+            claims = await self.member_service.join(new_member)
+            member_id = claims.id
+
+        else:
+            member_id = int(member_in_db.id)
+            member_email=str(member_in_db.member_email)
+            member_provider=str(member_in_db.member_provider)
+
+            claims = MemberClaimDTO(
+                id=member_id,
+                member_email=member_email,
+                member_provider=member_provider
+            )
+
+        access_token = generate_access_token(claims)
+        refresh_token = generate_refresh_token(claims)
+        await self.save_refresh_token(member_id, refresh_token)
+
+        return JwtTokenDTO(
+            access_token=access_token,
+            refresh_token=refresh_token
+        )
+
+
     # 로그아웃
-    # - access_token이 만료돼 쿠키에서 사라졌어도 로그아웃은 되어야 하므로
-    #   access/refresh 중 살아있는 토큰으로 회원을 찾는다.
-    async def logout(self, access_token: str | None, refresh_token: str | None) -> None:
-        member_id = None
-        for token in (access_token, refresh_token):
-            if not token:
-                continue
-            try:
-                member_id = parse_token(token).id
-                break
-            except Exception:
-                continue
-
-        # 아직 유효한 access_token은 블랙리스트에 등록
-        if access_token:
-            try:
-                parse_token(access_token)
-                await self.save_blacklisted_token(access_token)
-            except HTTPException:
-                raise
-            except Exception:
-                pass  # 이미 만료/위조된 토큰은 블랙리스트 불필요
-
-        if member_id is not None:
-            await self.delete_refresh_token(member_id)
+    async def logout(self, member_id: int, tokens: JwtTokenDTO) -> None:
+        access_token = tokens.access_token
+        await self.save_blacklisted_token(access_token)
+        await self.delete_refresh_token(member_id)
     
 
     # refresh -> access 재발급
+    async def refresh(self, refresh_token: str) -> str:
+        payload = parse_token(refresh_token)
+        member_id = payload.id
+        is_valid: bool = await self.validate_refresh_token(member_id, refresh_token)
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                message="유효하지 않은 Refresh Token"
+            )
+
+        return reissue_access_token(refresh_token)
 
 
 
